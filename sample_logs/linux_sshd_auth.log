@@ -1,0 +1,16 @@
+<86>Oct 18 21:01:01 linux-db-srv01 sshd[14201]: Accepted publickey for deploy from 10.20.1.15 port 52341 ssh2: RSA SHA256:k8xJ9pL2mN4qR7vW1yZ3aB5cD6eF8gH0iJ2kL4mN6oP
+<86>Oct 18 21:01:02 linux-db-srv01 sshd[14201]: pam_unix(sshd:session): session opened for user deploy(uid=1001) by (uid=0)
+<85>Oct 18 21:01:04 linux-db-srv01 sudo:   deploy : TTY=pts/0 ; PWD=/home/deploy ; USER=root ; COMMAND=/usr/bin/systemctl restart postgresql
+<86>Oct 18 21:01:04 linux-db-srv01 sudo: pam_unix(sudo:session): session opened for user root(uid=0) by deploy(uid=1001)
+<86>Oct 18 21:01:05 linux-db-srv01 sudo: pam_unix(sudo:session): session closed for user root
+<38>Oct 18 21:01:07 linux-db-srv01 sshd[14255]: Invalid user admin from 185.220.101.42 port 39812
+<38>Oct 18 21:01:08 linux-db-srv01 sshd[14255]: pam_unix(sshd:auth): check pass; user unknown
+<38>Oct 18 21:01:08 linux-db-srv01 sshd[14255]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=185.220.101.42
+<38>Oct 18 21:01:10 linux-db-srv01 sshd[14255]: Failed password for invalid user admin from 185.220.101.42 port 39812 ssh2
+<38>Oct 18 21:01:11 linux-db-srv01 sshd[14255]: Connection closed by invalid user admin 185.220.101.42 port 39812 [preauth]
+<38>Oct 18 21:01:13 linux-db-srv01 sshd[14289]: Failed password for root from 185.220.101.42 port 40118 ssh2
+<38>Oct 18 21:01:15 linux-db-srv01 sshd[14289]: Failed password for root from 185.220.101.42 port 40118 ssh2
+<38>Oct 18 21:01:17 linux-db-srv01 sshd[14289]: Disconnecting authenticating user root 185.220.101.42 port 40118: Too many authentication failures [preauth]
+<86>Oct 18 21:01:20 linux-db-srv01 CRON[14310]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+<78>Oct 18 21:01:20 linux-db-srv01 CRON[14311]: (root) CMD (/usr/local/bin/backup_check.sh)
+<86>Oct 18 21:01:21 linux-db-srv01 CRON[14310]: pam_unix(cron:session): session closed for user root

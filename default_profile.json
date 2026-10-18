@@ -1,0 +1,52 @@
+{
+  "global_config": {
+    "target_ip": "127.0.0.1",
+    "default_port": 514,
+    "default_repeat_count": 3,
+    "infinite_loop": false,
+    "loop_interval_sec": 1.0,
+    "default_eps": 20,
+    "send_mode": "auto",
+    "prepend_syslog_header": false,
+    "syslog_facility": 16,
+    "syslog_severity": 6
+  },
+  "tasks": [
+    {
+      "enabled": true,
+      "system_name": "PaloAlto-Firewall",
+      "file_path": "sample_logs/firewall_paloalto.log",
+      "source_ip": "192.168.10.101",
+      "target_port": null,
+      "repeat_count": null,
+      "eps": null
+    },
+    {
+      "enabled": true,
+      "system_name": "Linux-SSHD-Server",
+      "file_path": "sample_logs/linux_sshd_auth.log",
+      "source_ip": "192.168.10.102",
+      "target_port": null,
+      "repeat_count": null,
+      "eps": null
+    },
+    {
+      "enabled": true,
+      "system_name": "Windows-AD-DC01",
+      "file_path": "sample_logs/windows_security_event.log",
+      "source_ip": "192.168.10.103",
+      "target_port": null,
+      "repeat_count": null,
+      "eps": null
+    },
+    {
+      "enabled": true,
+      "system_name": "Nginx-Edge-Gateway",
+      "file_path": "sample_logs/nginx_web_access.log",
+      "source_ip": "192.168.10.104",
+      "target_port": null,
+      "repeat_count": null,
+      "eps": null
+    }
+  ]
+}
