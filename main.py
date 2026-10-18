@@ -8,6 +8,11 @@ import os
 import sys
 from pathlib import Path
 
+if sys.version_info < (3, 9):
+    print("❌ 錯誤：PySide6 需要 Python 3.9 或更高版本（建議使用 Python 3.10 ~ 3.12）。", file=sys.stderr)
+    print(f"   目前使用的 Python 版本為: {sys.version.split()[0]}", file=sys.stderr)
+    sys.exit(1)
+
 # 若使用者直接執行 `./main.py` 或 `python3 main.py`（使用到系統預設 Python），
 # 自動切換至專案內建的 `.venv/bin/python` 執行，避免找不到 PySide6 套件。
 _PROJECT_DIR = Path(__file__).resolve().parent
@@ -16,9 +21,15 @@ _VENV_PYTHON = _VENV_DIR / "bin" / "python"
 if _VENV_PYTHON.is_file() and Path(sys.prefix).resolve() != _VENV_DIR:
     os.execv(str(_VENV_PYTHON), [str(_VENV_PYTHON), str(Path(__file__).resolve()), *sys.argv[1:]])
 
-from PySide6.QtWidgets import QApplication
-
-from ui.main_window import MainWindow
+try:
+    from PySide6.QtWidgets import QApplication
+    from ui.main_window import MainWindow
+except ImportError:
+    print("❌ 錯誤：尚未安裝 GUI 依賴套件 PySide6，或尚未建立虛擬環境。", file=sys.stderr)
+    print("💡 建議直接執行啟動腳本（首次執行會自動為您建立 .venv 與安裝套件）：", file=sys.stderr)
+    print("   ./run.sh        (一般權限模式)", file=sys.stderr)
+    print("   ./run_sudo.sh   (具備網卡 IP Alias 與 Raw Socket 偽造權限)", file=sys.stderr)
+    sys.exit(1)
 
 
 def main() -> int:
