@@ -35,7 +35,7 @@
 
 首次在全新環境或複製專案後執行，腳本會**自動檢查 Python 版本、自動建立 `.venv` 虛擬環境，並自動安裝必要套件**，無需手動執行 `pip install`！
 
-### 方式 A：以 `sudo` 啟動（推薦：完整啟用「網卡 IP Alias 掛載」與「Raw Socket 偽造來源 IP」）
+### 方式 A：以 `sudo` 啟動（推薦：完整啟用「網卡 IP Alias 掛載」與「Raw Socket 模擬其他來源 IP」）
 
 在終端機執行：
 
