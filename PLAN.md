@@ -94,3 +94,82 @@ flowchart LR
 - `default_profile.json` — 預設範例設定檔（啟動時自動載入 4 個範例檔案與不同 Source IP）
 - `run.sh` / `run_sudo.sh` — 快速啟動腳本（一般啟動與 `sudo` Raw Socket 模式啟動）
 - `requirements.txt` & `README.md` — 環境依賴與操作說明
+
+---
+
+# 第二版 (v2.0) — 轉型為「零第三方依賴」跨平台 Web 介面架構
+
+## 1. 改動原因（為什麼從原生桌面 `PySide6` 改為 Web 介面？）
+
+在第一版 (`v1.0`，已提交至 Git `184adf5`) 的實務部署與跨平台測試（macOS 與 Ubuntu Linux VM）過程中，我們發現 `PySide6 (Qt6)` 桌面視窗在面對本專案核心需求時存在以下結構性限制：
+
+1. **`sudo` 管理員權限與桌面圖形系統 (Wayland / X11) 的嚴重衝突**：
+   - 本工具的核心功能（「網卡掛載虛擬副 IP `ifconfig`/`ip addr`」與「Raw Socket 封包偽造」）**必須以 `sudo` / `root` 權限執行**。
+   - 在 Ubuntu (Wayland / X11) 環境下，以 `sudo` 執行桌面 GUI 時，作業系統安全機制會清空 `XDG_RUNTIME_DIR` 與 `WAYLAND_DISPLAY` 等環境變數，導致 Qt 被迫降級至 X11 (`xcb`) 外掛，進而因為缺少系統底層圖形庫 (`libxcb-cursor0`) 或 Xauthority 授權問題而直接崩潰 (`Aborted / core dumped`)。
+2. **龐大的安裝體積與系統相依性**：
+   - `PySide6` 安裝體積高達 **450 MB 以上**，且在不同 Linux 發行版上需要額外安裝多個 `libxcb-*` 系統套件；若在封閉內網或離線測試環境中部署極為不便。
+3. **無法支援無桌面環境的 Linux 測試機 (Headless Server)**：
+   - 實務上常需將 Log 發送端部署於無桌面環境的 Linux VM（僅透過 SSH 連線），原生桌面 GUI 無法在此類環境執行。
+
+---
+
+## 2. 第二版 (v2.0) 具體做法與架構設計
+
+為徹底解決上述問題，第二版採用 **「Python 內建標準庫 Web Server (`ThreadingHTTPServer`) + 現代化單頁式 Web UI (SPA)」** 架構，達成 **「零第三方套件依賴 (Zero-Dependency)」**。
+
+```mermaid
+flowchart LR
+    subgraph Browser["跨平台瀏覽器 Web UI (macOS / Linux / Windows / 遠端連線)"]
+        WebGlobal["全域設定與網卡 IP Alias 管理面板"]
+        WebTable["多檔案任務清單與即時進度條"]
+        WebPicker["伺服器端檔案/資料夾選取器\n(原地讀取百 MB 大檔免上傳)"]
+        WebTabs["即時發送日誌 / Raw Log 預覽 / 本機 UDP 接收測試器"]
+    end
+
+    subgraph Backend["Python 零依賴後端服務 (ThreadingHTTPServer, 支援 sudo)"]
+        API["RESTful JSON API 控制器\n(/api/state, /api/start, /api/alias, /api/files...)"]
+        TaskMgr["純 Python 多執行緒任務管理引擎\n(移除 Qt QThread 依賴，改用標準 threading)"]
+        RecvMgr["本機 UDP 測試接收執行緒"]
+    end
+
+    subgraph Network["網路封包發送與網卡管理層 (完全保留 v1 核心)"]
+        AliasBind["IP Alias 綁定發送\n(ifconfig / ip addr + socket.bind)"]
+        RawSpoof["Raw Socket 偽造來源 IP\n(自訂 IPv4 + UDP Header)"]
+        StdUDP["一般 UDP Socket 備援"]
+    end
+
+    Browser <-->|"HTTP JSON API (127.0.0.1:8080)"| API
+    API --> TaskMgr & RecvMgr
+    TaskMgr --> Network
+    Network -->|"UDP 514 / Custom Port"| SIEM["目標 SIEM / Log Server"]
+```
+
+### 具體改造步驟：
+
+1. **移除 `PySide6` 依賴，重構執行緒引擎 (`core/worker.py`)**：
+   - 將原本繼承自 `PySide6.QtCore.QThread` 與 `Signal` 的 `LogTaskWorker` 與 `LocalUdpReceiverThread`，改為使用 Python 標準庫 `threading.Thread` 與執行緒安全 (`threading.Lock`) 的狀態儲存區 (`TaskManager`)。
+   - **完整保留** `core/models.py`、`core/packet_sender.py` 與 `core/ip_alias_manager.py` 的所有底層能力（包含網卡虛擬副 IP 掛載/卸載、Raw Socket 偽造、EPS 速率控制、重複發送與無限循環）。
+
+2. **建立內建輕量 Web Server 與 REST API (`web/server.py`)**：
+   - 使用 Python 標準庫 `http.server.ThreadingHTTPServer` 建立高效能多執行緒 Web 伺服器（預設監聽 `http://0.0.0.0:8080`，支援本機自動開啟瀏覽器，也支援從其他電腦遠端連線操作）。
+   - 提供完整 API：
+     - `GET /api/status`：取得全系統即時狀態（Root 權限狀態、網卡列表、各任務進度百分比、已送筆數、執行日誌、本機 UDP 接收器訊息）。
+     - `POST /api/tasks/start`、`POST /api/tasks/pause`、`POST /api/tasks/stop`：控制多任務並發發送、暫停與停止。
+     - `POST /api/alias/mount`、`POST /api/alias/unmount`：一鍵掛載與清除網卡虛擬副 IP (IP Alias)。
+     - `GET /api/fs/browse`、`POST /api/fs/scan_folder`：**伺服器端本機檔案與資料夾瀏覽器**，讓使用者在網頁上直接點選伺服器本機硬碟（如 `sample_logs/` 或任意路徑）上的超大 `.log` 檔案（如 400MB Raw Log），**由後端原地直接讀取發送，完全不需要透過瀏覽器上傳檔案**。
+     - `GET /api/preview`：預覽指定 Raw Log 檔案前 100 行內容。
+     - `POST /api/profile/save`、`POST /api/profile/load`：儲存與載入 JSON 設定檔。
+     - `POST /api/receiver/toggle`、`POST /api/receiver/clear`：啟動/停止內建本機 UDP 測試接收器。
+
+3. **建立現代化單頁式 Web 操作介面 (`web/index.html`)**：
+   - 採用深色/淺色高質感資訊安全儀表板設計，無需編譯前端框架，單一檔案即開即用。
+   - 介面配置與第一版完全對應且更直覺：
+     - 頂部權限橫幅（清楚顯示目前是否具備 `sudo / root` 權限）。
+     - 全域發送設定區 + **網卡虛擬副 IP (IP Alias) 一鍵掛載/清除工具列**。
+     - 多系統任務清單表格（支援勾選、批次自動遞增分配同網段來源 IP、個別 Port/重複次數/EPS 覆寫、即時動態進度條）。
+     - 伺服器本機檔案選取對話框（可一鍵掃描 `sample_logs/` 或瀏覽電腦目錄加入檔案）。
+     - 下方三合一分頁（📋 即時執行日誌、🔍 Raw Log 檔案內容預覽、📡 內建本機 UDP 接收測試器）。
+
+4. **極簡化啟動腳本 (`main.py`, `run.sh`, `run_sudo.sh`, `requirements.txt`)**：
+   - `requirements.txt` 改為零外部強制依賴（標註純 Python 標準庫即可執行，Python 3.8 ~ 3.13 全版本相容）。
+   - 執行 `./run.sh` 或 `./run_sudo.sh`（或 `sudo python3 main.py`）時，**不再需要建立 `.venv` 或下載 450MB 套件**，1 秒內直接啟動 Web 服務並自動打開瀏覽器（若以 `sudo` 執行，會自動以一般使用者身分喚起瀏覽器，徹底避開 root 視窗權限問題）。
