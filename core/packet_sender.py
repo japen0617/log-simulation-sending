@@ -255,7 +255,17 @@ class PacketTransmitter:
     ) -> None:
         """Send a single UDP log packet."""
         if self.active_mode == "ip_alias_bind" and self._std_sock is not None:
-            self._std_sock.sendto(payload, (target_ip, target_port))
+            effective_target = target_ip
+            if (
+                (target_ip.startswith("127.") or target_ip == "localhost")
+                and self.source_ip
+                and not self.source_ip.startswith("127.")
+            ):
+                effective_target = self.source_ip
+            try:
+                self._std_sock.sendto(payload, (effective_target, target_port))
+            except OSError:
+                self._std_sock.sendto(payload, (target_ip, target_port))
             return
 
         if self.active_mode == "raw_spoof" and self._raw_sock is not None:

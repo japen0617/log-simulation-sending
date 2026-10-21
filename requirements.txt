@@ -1,4 +1,10 @@
-# Python 建議版本: Python >= 3.9 (最佳體驗建議 Python 3.10 ~ 3.12)
-# 核心網路發送 (Raw Socket, IP Alias, UDP) 均使用 Python 內建標準函式庫，
-# 僅圖形介面 (GUI) 需要安裝 PySide6 (Qt6):
-PySide6>=6.5.0
+# Multi-Source Raw Log UDP 發送模擬器 (v2.0 零外部依賴版)
+#
+# 本專案 100% 採用 Python 3 標準函式庫開發：
+# - 網路發送、Raw Socket 偽造、網卡 IP Alias：socket, struct, subprocess
+# - 多執行緒並發與任務控制：threading, time, collections
+# - Web 伺服器與 RESTful API：http.server, json, urllib, mimetypes
+# - 跨平台檔案與系統操作：os, sys, platform, pathlib, signal
+#
+# 👉 不需要執行 pip install，不需要安裝任何第三方套件！
+# 只要具備 Python 3.8 以上版本 (推薦 Python 3.10 ~ 3.13) 即可直接執行。

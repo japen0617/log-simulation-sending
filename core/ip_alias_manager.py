@@ -80,7 +80,11 @@ class IpAliasManager:
         """
         ip_str = ip_str.strip()
         if self.is_ip_local(ip_str):
-            return True, f"IP {ip_str} 已存在於本機網卡，可直接綁定發送"
+            for iface in self.list_interfaces():
+                if iface.name == interface and ip_str in iface.ipv4_addresses:
+                    if iface.ipv4_addresses and ip_str != iface.ipv4_addresses[0]:
+                        self.mounted_aliases.add((interface, ip_str, prefix_len))
+            return True, f"IP {ip_str} 已存在於網卡 {interface}，可直接綁定發送"
 
         if not self.is_root():
             return (

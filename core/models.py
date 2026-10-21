@@ -22,7 +22,7 @@ class GlobalConfig:
     default_eps: int = 100  # 0 means unlimited speed
     send_mode: str = "ip_alias_bind"  # "ip_alias_bind", "auto", "raw_spoof", or "standard_udp"
     bind_interface: str = ""  # e.g. "en0" or "eth0" for IP Alias mounting
-    auto_cleanup_aliases: bool = False
+    auto_cleanup_aliases: bool = True
     prepend_syslog_header: bool = False
     syslog_facility: int = 16  # local0 (16)
     syslog_severity: int = 6  # info (6) -> PRI = 16*8 + 6 = 134
@@ -90,7 +90,7 @@ class ProjectProfile:
             default_eps=int(g_data.get("default_eps", 100)),
             send_mode=str(g_data.get("send_mode", "auto")),
             bind_interface=str(g_data.get("bind_interface", "")),
-            auto_cleanup_aliases=bool(g_data.get("auto_cleanup_aliases", False)),
+            auto_cleanup_aliases=bool(g_data.get("auto_cleanup_aliases", True)),
             prepend_syslog_header=bool(g_data.get("prepend_syslog_header", False)),
             syslog_facility=int(g_data.get("syslog_facility", 16)),
             syslog_severity=int(g_data.get("syslog_severity", 6)),

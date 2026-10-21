@@ -1,0 +1,1535 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi-Source Raw Log UDP 發送模擬器 (v2.0 Web版)</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --success: #10b981;
+      --success-hover: #059669;
+      --warning: #f59e0b;
+      --warning-hover: #d97706;
+      --danger: #ef4444;
+      --danger-hover: #dc2626;
+      --input-bg: #0b1120;
+      --input-border: #475569;
+      --badge-bg: #1e293b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 16px;
+      font-size: 14px;
+    }
+
+    /* Layout */
+    .container { max-width: 1440px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 14px 18px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 8px;
+    }
+
+    /* Top Banner */
+    .banner {
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-weight: 600;
+    }
+    .banner-root { background-color: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #34d399; }
+    .banner-normal { background-color: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; color: #fbbf24; }
+
+    /* Form Controls */
+    .grid-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+    .form-group { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+    .form-group label { color: var(--text-muted); font-weight: 500; white-space: nowrap; }
+    input[type="text"], input[type="number"], select {
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+    input[type="text"]:focus, input[type="number"]:focus, select:focus {
+      border-color: var(--primary);
+    }
+    input.invalid-ip { border-color: var(--danger) !important; background-color: rgba(239, 68, 68, 0.15) !important; }
+    input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer; }
+
+    /* Buttons */
+    .btn {
+      background: #334155;
+      color: white;
+      border: 1px solid #475569;
+      padding: 6px 12px;
+      border-radius: 5px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .btn:hover { background: #475569; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: var(--primary); border-color: var(--primary); }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-success { background: var(--success); border-color: var(--success); font-weight: 600; }
+    .btn-success:hover { background: var(--success-hover); }
+    .btn-warning { background: var(--warning); border-color: var(--warning); }
+    .btn-warning:hover { background: var(--warning-hover); }
+    .btn-danger { background: var(--danger); border-color: var(--danger); }
+    .btn-danger:hover { background: var(--danger-hover); }
+    .btn-sm { padding: 4px 8px; font-size: 12px; }
+
+    /* Action bar */
+    .action-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: rgba(15, 23, 42, 0.6);
+      padding: 10px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--card-border);
+    }
+    .stats-badge {
+      font-weight: 600;
+      color: #38bdf8;
+      font-size: 13px;
+    }
+
+    /* Table */
+    .table-responsive {
+      max-height: 380px;
+      overflow-y: auto;
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+    }
+    th {
+      background: #0b1120;
+      color: var(--text-muted);
+      padding: 8px 10px;
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid var(--card-border);
+      white-space: nowrap;
+    }
+    td {
+      padding: 7px 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      vertical-align: middle;
+    }
+    tr:hover td { background: rgba(255, 255, 255, 0.03); }
+    tr.selected td { background: rgba(59, 130, 246, 0.15) !important; }
+    .td-input {
+      width: 100%;
+      padding: 4px 6px;
+      font-size: 12px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 3px;
+      color: white;
+    }
+
+    /* Badges & Progress */
+    .badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-ready { background: #334155; color: #cbd5e1; }
+    .badge-running { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid #3b82f6; }
+    .badge-paused { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #f59e0b; }
+    .badge-completed { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; }
+    .badge-error { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; }
+
+    .progress-bar-bg {
+      width: 100%;
+      min-width: 90px;
+      height: 14px;
+      background: #0f172a;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      position: relative;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #3b82f6, #10b981);
+      width: 0%;
+      transition: width 0.2s ease;
+    }
+    .progress-text {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: white;
+      text-shadow: 0 0 2px black;
+    }
+
+    /* Tabs */
+    .tabs-header {
+      display: flex;
+      gap: 6px;
+      border-bottom: 1px solid var(--card-border);
+      margin-bottom: 10px;
+    }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s ease;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Console / Preview Text Area */
+    .log-console {
+      background: #020617;
+      border: 1px solid #1e293b;
+      border-radius: 6px;
+      padding: 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      color: #e2e8f0;
+      height: 220px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.65);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal-dialog {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      width: 90%;
+      max-width: 680px;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+    .modal-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: bold;
+    }
+    .modal-body { padding: 16px; overflow-y: auto; flex: 1; }
+    .modal-footer {
+      padding: 10px 16px;
+      border-top: 1px solid var(--card-border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .fs-list-item {
+      padding: 6px 10px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .fs-list-item:hover { background: rgba(255, 255, 255, 0.08); }
+    .fs-list-item.selected { background: rgba(59, 130, 246, 0.25); color: #60a5fa; }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      padding: 10px 18px;
+      border-radius: 6px;
+      background: #1e293b;
+      color: white;
+      border: 1px solid #475569;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+      font-size: 13px;
+      font-weight: 500;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.25s ease;
+      z-index: 9999;
+      pointer-events: none;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+    #toast.toast-success { border-color: var(--success); color: #34d399; }
+    #toast.toast-error { border-color: var(--danger); color: #f87171; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- 1. Privilege Status Banner -->
+  <div id="banner" class="banner banner-normal">
+    <div id="banner-text">⏳ 正在連線至後端服務...</div>
+    <div style="font-size: 12px; color: var(--text-muted);">
+      服務位置: <span id="server-url" style="color: white;">http://127.0.0.1:8080</span>
+    </div>
+  </div>
+
+  <!-- 2. Global Settings Card -->
+  <div class="card">
+    <div class="card-title">🌐 全域發送設定 (Global Settings)</div>
+    <div class="grid-row" style="margin-bottom: 12px;">
+      <div class="form-group">
+        <label>目標伺服器 IP (Destination):</label>
+        <input type="text" id="target_ip" style="width: 140px;" value="127.0.0.1" placeholder="例如 192.168.1.50">
+      </div>
+      <div class="form-group">
+        <label>預設 Port:</label>
+        <input type="number" id="default_port" style="width: 80px;" value="514" min="1" max="65535">
+      </div>
+      <div class="form-group">
+        <label>預設重複次數:</label>
+        <input type="number" id="default_repeat_count" style="width: 80px;" value="1" min="1" max="999999">
+      </div>
+      <div class="form-group">
+        <input type="checkbox" id="infinite_loop">
+        <label for="infinite_loop">無限循環發送</label>
+      </div>
+      <div class="form-group">
+        <label>每輪間隔(秒):</label>
+        <input type="number" id="loop_interval_sec" style="width: 75px;" value="1.0" min="0" step="0.5">
+      </div>
+      <div class="form-group">
+        <label>預設速率 EPS (0=不限速):</label>
+        <input type="number" id="default_eps" style="width: 80px;" value="100" min="0">
+      </div>
+    </div>
+
+    <div class="grid-row" style="margin-bottom: 12px;">
+      <div class="form-group">
+        <label>封包發送模式:</label>
+        <select id="send_mode" style="width: 440px;">
+          <option value="auto">推薦：自動偵測 (優先網卡綁定虛擬 IP -> Raw Socket 偽造 -> 一般 UDP)</option>
+          <option value="ip_alias_bind">網卡綁定虛擬副 IP 模式 (IP Alias + Bind，最穩定 100% 送達，需 sudo)</option>
+          <option value="raw_spoof">強制 Raw Socket 偽造來源 IP (不改網卡，需 sudo)</option>
+          <option value="standard_udp">一般 UDP Socket (免權限測試，使用本機預設 IP)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <input type="checkbox" id="prepend_syslog_header">
+        <label for="prepend_syslog_header">自動補上 RFC3164 Syslog Header (&lt;134&gt;時間 模擬來源IP)</label>
+      </div>
+    </div>
+
+    <!-- IP Alias Toolbar -->
+    <div class="grid-row" style="background: rgba(0,0,0,0.25); padding: 8px 12px; border-radius: 5px; border: 1px solid var(--card-border);">
+      <div class="form-group">
+        <label>🔌 綁定網卡 (IP Alias):</label>
+        <select id="bind_interface" style="min-width: 200px;"></select>
+      </div>
+      <button class="btn btn-sm" id="btn-refresh-iface">🔄 重新整理網卡</button>
+      <button class="btn btn-sm btn-primary" id="btn-mount-alias">🔗 一鍵掛載清單內虛擬副 IP</button>
+      <button class="btn btn-sm" id="btn-unmount-alias">🧹 一鍵清除虛擬副 IP</button>
+      <div class="form-group" style="margin-left: auto;">
+        <input type="checkbox" id="auto_cleanup_aliases" checked>
+        <label for="auto_cleanup_aliases">關閉服務時自動清除</label>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Task Management & Controls Card -->
+  <div class="card">
+    <div class="action-bar" style="margin-bottom: 12px;">
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <button class="btn btn-success" id="btn-start-all" style="padding: 8px 18px; font-size: 14px;">
+          ▶ 開始同時發送勾選的 Raw Log
+        </button>
+        <button class="btn btn-warning" id="btn-pause-all" disabled>⏸ 暫停全部</button>
+        <button class="btn btn-danger" id="btn-stop-all" disabled>⏹ 停止全部</button>
+      </div>
+      <div class="stats-badge" id="stats-summary">執行中並發任務: 0 | 累計已發送封包: 0</div>
+    </div>
+
+    <div class="grid-row" style="margin-bottom: 10px;">
+      <button class="btn btn-sm" id="btn-browse-file">➕ 加入檔案 (伺服器目錄瀏覽)</button>
+      <button class="btn btn-sm" id="btn-scan-sample">📂 快速匯入 sample_logs/ 全部檔案</button>
+      <button class="btn btn-sm btn-primary" id="btn-batch-ip">🔢 批次自動遞增分配來源 IP</button>
+      <button class="btn btn-sm" id="btn-toggle-all">☑️ 全選 / 取消</button>
+      <button class="btn btn-sm btn-danger" id="btn-remove-selected">🗑️ 移除選取項目</button>
+      <div style="margin-left: auto; display: flex; gap: 8px;">
+        <button class="btn btn-sm" id="btn-load-profile">📥 載入設定檔</button>
+        <button class="btn btn-sm" id="btn-save-profile">💾 儲存設定檔</button>
+      </div>
+    </div>
+
+    <!-- Task Table -->
+    <div class="table-responsive">
+      <table id="task-table">
+        <thead>
+          <tr>
+            <th style="width: 38px; text-align: center;"><input type="checkbox" id="th-check-all" checked></th>
+            <th style="width: 170px;">系統 / 任務名稱</th>
+            <th>Raw Log 檔案路徑 (點選可預覽)</th>
+            <th style="width: 70px; text-align: center;">行數</th>
+            <th style="width: 140px;">模擬來源 IP (必填)</th>
+            <th style="width: 85px;">目標 Port</th>
+            <th style="width: 85px;">重複次數</th>
+            <th style="width: 85px;">速率 EPS</th>
+            <th style="width: 140px; text-align: center;">輪數 / 已送筆數</th>
+            <th style="width: 130px; text-align: center;">發送進度</th>
+            <th style="width: 110px; text-align: center;">狀態</th>
+            <th style="width: 50px; text-align: center;">操作</th>
+          </tr>
+        </thead>
+        <tbody id="task-tbody">
+          <!-- Rows dynamically inserted here -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 4. Bottom Tabs Card -->
+  <div class="card">
+    <div class="tabs-header">
+      <button class="tab-btn active" data-tab="tab-console">📋 即時執行日誌 (Execution Log)</button>
+      <button class="tab-btn" data-tab="tab-preview">🔍 Raw Log 檔案內容預覽</button>
+      <button class="tab-btn" data-tab="tab-receiver">📡 內建本機 UDP 接收測試器</button>
+    </div>
+
+    <!-- Tab 1: Console Log -->
+    <div class="tab-content active" id="tab-console">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <span style="font-size: 12px; color: var(--text-muted);">即時顯示所有並發發送任務的狀態、發送輪數與錯誤訊息：</span>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <label style="font-size: 12px; color: var(--text-muted); cursor: pointer;">
+            <input type="checkbox" id="chk-autoscroll" checked> 自動捲動
+          </label>
+          <button class="btn btn-sm" id="btn-clear-log">清除日誌</button>
+        </div>
+      </div>
+      <div class="log-console" id="console-logs"></div>
+    </div>
+
+    <!-- Tab 2: File Preview -->
+    <div class="tab-content" id="tab-preview">
+      <div style="margin-bottom: 6px; font-size: 13px; color: var(--text-muted);" id="preview-title">
+        點選上方表格中任一列的檔案路徑，即可直接在此預覽前 100 行內容
+      </div>
+      <div class="log-console" id="preview-content"></div>
+    </div>
+
+    <!-- Tab 3: Local UDP Receiver -->
+    <div class="tab-content" id="tab-receiver">
+      <div class="grid-row" style="margin-bottom: 10px;">
+        <div class="form-group">
+          <label>監聽 UDP Port:</label>
+          <input type="number" id="recv-port" style="width: 80px;" value="5514" min="1" max="65535">
+        </div>
+        <button class="btn btn-sm btn-primary" id="btn-toggle-recv">📡 啟動本機 UDP 接收器</button>
+        <button class="btn btn-sm btn-success" id="btn-apply-recv-target">⚡ 一鍵將全域目標設為本機 Port</button>
+        <button class="btn btn-sm" id="btn-clear-recv">清除接收紀錄</button>
+        <span id="recv-status-text" style="font-size: 12px; color: var(--text-muted);">狀態：未啟動</span>
+      </div>
+      <div class="log-console" id="receiver-logs"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- File Browser Modal -->
+<div class="modal-backdrop" id="fs-modal">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <span>📂 伺服器端目錄與檔案瀏覽器 (原生讀取百 MB 大檔免上傳)</span>
+      <button class="btn btn-sm" onclick="closeFsModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 10px;">
+        <button class="btn btn-sm" id="btn-fs-up">⬆ 回上一層</button>
+        <input type="text" id="fs-current-dir" style="flex: 1;" readonly>
+      </div>
+      <div style="max-height: 350px; overflow-y: auto; border: 1px solid var(--card-border); border-radius: 4px;" id="fs-list">
+        <!-- Folders and files listed here -->
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeFsModal()">關閉</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Alert -->
+<div id="toast"></div>
+
+<script>
+// State Store
+let state = {
+  is_root: false,
+  interfaces: [],
+  global_config: {},
+  tasks: [],
+  is_running: false,
+  is_paused: false,
+  active_workers: 0,
+  total_sent_packets: 0,
+  logs: [],
+  receiver: { running: false, port: 5514, message: '', packets: [] }
+};
+
+let selectedTaskId = null;
+let pollTimer = null;
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+  setupTabs();
+  bindEvents();
+  fetchStatus(true);
+  startPolling();
+});
+
+function showToast(msg, type = 'info') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + (type === 'success' ? 'toast-success' : (type === 'error' ? 'toast-error' : ''));
+  setTimeout(() => { t.className = ''; }, 3500);
+}
+
+function setupTabs() {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.tab).classList.add('active');
+    });
+  });
+}
+
+function startPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(() => {
+    fetchStatus(false);
+  }, 700);
+}
+
+// Fetch System State
+async function fetchStatus(isInitial = false) {
+  try {
+    const res = await fetch('/api/status');
+    const json = await res.json();
+    if (json.success && json.data) {
+      if (isInitial || !state.tasks || state.tasks.length === 0 || state.tasks.length !== json.data.tasks.length) {
+        state = json.data;
+      } else {
+        // Incrementally merge runtime & progress updates without overwriting client task configurations
+        state.is_root = json.data.is_root;
+        state.interfaces = json.data.interfaces;
+        state.is_running = json.data.is_running;
+        state.is_paused = json.data.is_paused;
+        state.active_workers = json.data.active_workers;
+        state.total_sent_packets = json.data.total_sent_packets;
+        state.logs = json.data.logs;
+        state.receiver = json.data.receiver;
+        // Merge runtime status per task without clobbering user-configured fields
+        json.data.tasks.forEach((srvTask, idx) => {
+          const cliTask = state.tasks[idx];
+          if (!cliTask) return;
+          cliTask.sent_in_round = srvTask.sent_in_round;
+          cliTask.total_lines = srvTask.total_lines;
+          cliTask.total_sent = srvTask.total_sent;
+          cliTask.current_round = srvTask.current_round;
+          cliTask.total_rounds = srvTask.total_rounds;
+          cliTask.progress_pct = srvTask.progress_pct;
+          cliTask.status = srvTask.status;
+          cliTask.is_error = srvTask.is_error;
+          cliTask.is_running = srvTask.is_running;
+          if (state.is_running) {
+            cliTask.enabled = srvTask.enabled;
+          }
+        });
+      }
+      renderState(isInitial);
+    }
+  } catch (err) {
+    console.error('輪詢狀態失敗:', err);
+  }
+}
+
+function renderState(isInitial = false) {
+  // 1. Privilege Banner
+  const banner = document.getElementById('banner');
+  const bannerText = document.getElementById('banner-text');
+  if (state.is_root) {
+    banner.className = 'banner banner-root';
+    bannerText.innerHTML = '✅ <b>目前具備 Root / Sudo 權限</b>：支援「網卡自動掛載虛擬副 IP (IP Alias) + 真實綁定發送」與「Raw Socket 偽造來源 IP 模式」。';
+  } else {
+    banner.className = 'banner banner-normal';
+    bannerText.innerHTML = 'ℹ️ <b>目前以一般使用者權限執行 (run.sh)</b>：發送來源 IP 固定使用下方所選網卡之真實 IP。若需掛載多個虛擬副 IP (192.168.10.101~104) 模擬多來源，請以 <code>sudo ./run_sudo.sh</code> 啟動。';
+  }
+
+  // 2. Global settings inputs (only sync on initial or when not user-typing)
+  if (isInitial) {
+    const g = state.global_config || {};
+    document.getElementById('target_ip').value = g.target_ip || '127.0.0.1';
+    document.getElementById('default_port').value = g.default_port || 514;
+    document.getElementById('default_repeat_count').value = g.default_repeat_count || 1;
+    document.getElementById('infinite_loop').checked = !!g.infinite_loop;
+    document.getElementById('loop_interval_sec').value = g.loop_interval_sec !== undefined ? g.loop_interval_sec : 1.0;
+    document.getElementById('default_eps').value = g.default_eps !== undefined ? g.default_eps : 100;
+    document.getElementById('send_mode').value = g.send_mode || 'auto';
+    document.getElementById('prepend_syslog_header').checked = !!g.prepend_syslog_header;
+    document.getElementById('auto_cleanup_aliases').checked = g.auto_cleanup_aliases !== undefined ? g.auto_cleanup_aliases : true;
+
+    // Interfaces dropdown
+    const ifaceSelect = document.getElementById('bind_interface');
+    ifaceSelect.innerHTML = '';
+    let hasSelected = false;
+    (state.interfaces || []).forEach(iface => {
+      const opt = document.createElement('option');
+      opt.value = iface.name;
+      opt.textContent = iface.display_label;
+      if (iface.name === g.bind_interface) {
+        opt.selected = true;
+        hasSelected = true;
+      }
+      ifaceSelect.appendChild(opt);
+    });
+    if (!hasSelected && ifaceSelect.options.length > 0) {
+      const preferred = (state.interfaces || []).find(i => !i.is_loopback && i.ipv4_addresses && i.ipv4_addresses.length > 0);
+      if (preferred) {
+        ifaceSelect.value = preferred.name;
+      }
+    }
+  }
+
+  // 3. Action Buttons State
+  document.getElementById('btn-start-all').disabled = state.is_running;
+  document.getElementById('btn-pause-all').disabled = !state.is_running;
+  document.getElementById('btn-stop-all').disabled = !state.is_running;
+  document.getElementById('btn-pause-all').textContent = state.is_paused ? '▶ 繼續發送' : '⏸ 暫停全部';
+
+  // Privilege-specific button states
+  const isRoot = !!state.is_root;
+  const btnBatchIp = document.getElementById('btn-batch-ip');
+  const btnMountAlias = document.getElementById('btn-mount-alias');
+  const btnUnmountAlias = document.getElementById('btn-unmount-alias');
+  const chkAutoCleanup = document.getElementById('auto_cleanup_aliases');
+
+  if (!isRoot) {
+    if (btnBatchIp) {
+      btnBatchIp.disabled = true;
+      btnBatchIp.title = '一般權限模式 (run.sh) 下固定由本機 IP 發送；如需多來源 IP 請執行 ./run_sudo.sh';
+      btnBatchIp.style.opacity = '0.5';
+      btnBatchIp.style.cursor = 'not-allowed';
+    }
+    if (btnMountAlias) {
+      btnMountAlias.disabled = true;
+      btnMountAlias.title = '掛載網卡虛擬副 IP 需要 root / sudo 權限，請執行 ./run_sudo.sh';
+      btnMountAlias.style.opacity = '0.5';
+      btnMountAlias.style.cursor = 'not-allowed';
+    }
+    if (btnUnmountAlias) {
+      btnUnmountAlias.disabled = true;
+      btnUnmountAlias.title = '卸載網卡虛擬副 IP 需要 root / sudo 權限，請執行 ./run_sudo.sh';
+      btnUnmountAlias.style.opacity = '0.5';
+      btnUnmountAlias.style.cursor = 'not-allowed';
+    }
+    if (chkAutoCleanup) {
+      chkAutoCleanup.disabled = true;
+    }
+  } else {
+    if (btnBatchIp) {
+      btnBatchIp.disabled = false;
+      btnBatchIp.title = '';
+      btnBatchIp.style.opacity = '';
+      btnBatchIp.style.cursor = '';
+    }
+    if (btnMountAlias) {
+      btnMountAlias.disabled = false;
+      btnMountAlias.title = '';
+      btnMountAlias.style.opacity = '';
+      btnMountAlias.style.cursor = '';
+    }
+    if (btnUnmountAlias) {
+      btnUnmountAlias.disabled = false;
+      btnUnmountAlias.title = '';
+      btnUnmountAlias.style.opacity = '';
+      btnUnmountAlias.style.cursor = '';
+    }
+    if (chkAutoCleanup) {
+      chkAutoCleanup.disabled = false;
+    }
+  }
+
+  document.getElementById('stats-summary').textContent =
+    `執行中並發任務: ${state.active_workers} | 累計已發送封包: ${state.total_sent_packets}`;
+
+  // 4. Render Task Table
+  renderTaskTable();
+
+  // 5. Render Logs
+  renderLogs();
+
+  // 6. Render Receiver
+  renderReceiver();
+}
+
+function getEffectiveNonRootSourceIp() {
+  const ifaceSelect = document.getElementById('bind_interface');
+  const selectedIfaceName = (ifaceSelect ? ifaceSelect.value : '') || (state.global_config && state.global_config.bind_interface);
+  const ifaces = state.interfaces || [];
+
+  let targetIface = ifaces.find(i => i.name === selectedIfaceName);
+  if (!targetIface) {
+    targetIface = ifaces.find(i => !i.is_loopback && i.ipv4_addresses && i.ipv4_addresses.length > 0);
+  }
+  if (!targetIface && ifaces.length > 0) {
+    targetIface = ifaces[0];
+  }
+
+  if (targetIface && targetIface.ipv4_addresses && targetIface.ipv4_addresses.length > 0) {
+    const ip = targetIface.ipv4_addresses[0];
+    const isLoopback = targetIface.is_loopback || ip.startsWith('127.');
+    return `${ip} (綁定 ${targetIface.name}${isLoopback ? ' 迴路' : ''})`;
+  }
+
+  return '127.0.0.1 (本機迴路)';
+}
+
+function renderTaskTable(forceRebuild = false) {
+  const tbody = document.getElementById('task-tbody');
+  const existingRows = tbody.querySelectorAll('tr');
+  const isRoot = !!state.is_root;
+  const nonRootIp = getEffectiveNonRootSourceIp();
+
+  // Update header checkbox
+  const thCheckAll = document.getElementById('th-check-all');
+  if (thCheckAll && state.tasks && state.tasks.length > 0) {
+    thCheckAll.checked = state.tasks.every(t => t.enabled);
+  }
+
+  // If row count changed or forceRebuild is requested, re-render whole table
+  if (forceRebuild || existingRows.length !== (state.tasks || []).length) {
+    tbody.innerHTML = '';
+    (state.tasks || []).forEach((task, idx) => {
+      const tr = document.createElement('tr');
+      tr.dataset.id = idx;
+      if (selectedTaskId === idx) tr.classList.add('selected');
+
+      const displaySrcIp = isRoot ? (task.source_ip || '') : nonRootIp;
+      const srcAttrs = isRoot
+        ? ''
+        : 'disabled title="一般權限模式 (run.sh) 固定由上方所選網卡之真實 IP 發送，如需多來源 IP 請使用 sudo ./run_sudo.sh" style="background: rgba(255,255,255,0.05); color: #94a3b8; cursor: not-allowed;"';
+
+      tr.innerHTML = `
+        <td style="text-align: center;">
+          <input type="checkbox" class="task-check" data-id="${idx}" ${task.enabled ? 'checked' : ''}>
+        </td>
+        <td>
+          <input type="text" class="td-input task-sysname" data-id="${idx}" value="${escapeHtml(task.system_name)}">
+        </td>
+        <td>
+          <div style="font-family: monospace; font-size: 11px; cursor: pointer; color: #38bdf8;" onclick="selectAndPreview(${idx})">
+            ${escapeHtml(task.file_path)}
+          </div>
+        </td>
+        <td style="text-align: center; color: var(--text-muted);">${task.total_lines}</td>
+        <td>
+          <input type="text" class="td-input task-srcip" data-id="${idx}" value="${escapeHtml(displaySrcIp)}" ${srcAttrs}>
+        </td>
+        <td>
+          <input type="number" class="td-input task-port" data-id="${idx}" value="${task.target_port || ''}" placeholder="${state.global_config.default_port}">
+        </td>
+        <td>
+          <input type="number" class="td-input task-rep" data-id="${idx}" value="${task.repeat_count || ''}" placeholder="${state.global_config.infinite_loop ? '∞' : state.global_config.default_repeat_count}">
+        </td>
+        <td>
+          <input type="number" class="td-input task-eps" data-id="${idx}" value="${task.eps !== null && task.eps !== undefined ? task.eps : ''}" placeholder="${state.global_config.default_eps}">
+        </td>
+        <td style="text-align: center; font-size: 12px;" class="col-round-stats">
+          第 ${task.current_round}/${task.total_rounds === 0 ? '∞' : task.total_rounds} 輪 (${task.total_sent} 筆)
+        </td>
+        <td>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" style="width: ${task.progress_pct || 0}%;"></div>
+            <div class="progress-text">${task.progress_pct || 0}%</div>
+          </div>
+        </td>
+        <td style="text-align: center;" class="col-status">
+          ${renderBadge(task.status, task.is_error)}
+        </td>
+        <td style="text-align: center;">
+          <button class="btn btn-sm btn-danger" onclick="removeTask(${idx})">✕</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    bindTableInputEvents();
+  } else {
+    // Dynamic in-place update for stats, inputs & progress
+    (state.tasks || []).forEach((task, idx) => {
+      const tr = tbody.children[idx];
+      if (!tr) return;
+
+      // Update checkbox if user is not clicking it
+      const chk = tr.querySelector('.task-check');
+      if (chk && chk !== document.activeElement && chk.checked !== !!task.enabled) {
+        chk.checked = !!task.enabled;
+      }
+
+      // Update text/number inputs if user is not actively typing in them
+      const srcInp = tr.querySelector('.task-srcip');
+      if (srcInp && srcInp !== document.activeElement) {
+        const expectedVal = isRoot ? (task.source_ip || '') : nonRootIp;
+        if (srcInp.value !== expectedVal) srcInp.value = expectedVal;
+        if (!isRoot) {
+          srcInp.disabled = true;
+          srcInp.title = '一般權限模式 (run.sh) 固定由上方所選網卡之真實 IP 發送，如需多來源 IP 請使用 sudo ./run_sudo.sh';
+          srcInp.style.background = 'rgba(255,255,255,0.05)';
+          srcInp.style.color = '#94a3b8';
+          srcInp.style.cursor = 'not-allowed';
+        } else {
+          srcInp.disabled = false;
+          srcInp.title = '';
+          srcInp.style.background = '';
+          srcInp.style.color = '';
+          srcInp.style.cursor = '';
+        }
+      }
+
+      const sysInp = tr.querySelector('.task-sysname');
+      if (sysInp && sysInp !== document.activeElement && sysInp.value !== (task.system_name || '')) {
+        sysInp.value = task.system_name || '';
+      }
+
+      const portInp = tr.querySelector('.task-port');
+      if (portInp && portInp !== document.activeElement) {
+        const val = task.target_port ? String(task.target_port) : '';
+        if (portInp.value !== val) portInp.value = val;
+      }
+
+      const repInp = tr.querySelector('.task-rep');
+      if (repInp && repInp !== document.activeElement) {
+        const val = task.repeat_count ? String(task.repeat_count) : '';
+        if (repInp.value !== val) repInp.value = val;
+      }
+
+      const epsInp = tr.querySelector('.task-eps');
+      if (epsInp && epsInp !== document.activeElement) {
+        const val = (task.eps !== null && task.eps !== undefined) ? String(task.eps) : '';
+        if (epsInp.value !== val) epsInp.value = val;
+      }
+
+      const roundTd = tr.querySelector('.col-round-stats');
+      if (roundTd) {
+        roundTd.textContent = `第 ${task.current_round}/${task.total_rounds === 0 ? '∞' : task.total_rounds} 輪 (${task.total_sent} 筆)`;
+      }
+
+      const pFill = tr.querySelector('.progress-bar-fill');
+      const pText = tr.querySelector('.progress-text');
+      if (pFill && pText) {
+        pFill.style.width = `${task.progress_pct || 0}%`;
+        pText.textContent = `${task.progress_pct || 0}%`;
+      }
+
+      const statusTd = tr.querySelector('.col-status');
+      if (statusTd) {
+        statusTd.innerHTML = renderBadge(task.status, task.is_error);
+      }
+    });
+  }
+}
+
+function renderBadge(statusText, isError) {
+  if (isError) return `<span class="badge badge-error">${escapeHtml(statusText)}</span>`;
+  if (!statusText || statusText.includes('就緒')) return `<span class="badge badge-ready">就緒</span>`;
+  if (statusText.includes('發送中')) return `<span class="badge badge-running">發送中</span>`;
+  if (statusText.includes('暫停')) return `<span class="badge badge-paused">已暫停</span>`;
+  if (statusText.includes('完成')) return `<span class="badge badge-completed">已完成</span>`;
+  return `<span class="badge badge-ready">${escapeHtml(statusText)}</span>`;
+}
+
+function bindTableInputEvents() {
+  document.querySelectorAll('.task-check').forEach(chk => {
+    chk.onchange = (e) => {
+      const id = parseInt(e.target.dataset.id);
+      if (state.tasks[id]) state.tasks[id].enabled = e.target.checked;
+      const th = document.getElementById('th-check-all');
+      if (th && state.tasks && state.tasks.length > 0) {
+        th.checked = state.tasks.every(t => t.enabled);
+      }
+      syncTasksDebounced();
+    };
+  });
+
+  document.querySelectorAll('.task-sysname').forEach(inp => {
+    inp.onchange = (e) => {
+      const id = parseInt(e.target.dataset.id);
+      if (state.tasks[id]) state.tasks[id].system_name = e.target.value.trim();
+      syncTasksDebounced();
+    };
+  });
+
+  document.querySelectorAll('.task-srcip').forEach(inp => {
+    inp.oninput = (e) => {
+      const id = parseInt(e.target.dataset.id);
+      const val = e.target.value.trim();
+      if (!validateIpv4(val)) {
+        e.target.classList.add('invalid-ip');
+      } else {
+        e.target.classList.remove('invalid-ip');
+      }
+    };
+    inp.onchange = (e) => {
+      const id = parseInt(e.target.dataset.id);
+      if (state.tasks[id]) state.tasks[id].source_ip = e.target.value.trim();
+      syncTasksDebounced();
+    };
+  });
+
+  document.querySelectorAll('.task-port').forEach(inp => {
+    inp.onchange = (e) => {
+      const id = parseInt(e.target.dataset.id);
+      const val = parseInt(e.target.value);
+      if (state.tasks[id]) state.tasks[id].target_port = (!isNaN(val) && val > 0) ? val : null;
+      syncTasksDebounced();
+    };
+  });
+
+  document.querySelectorAll('.task-rep').forEach(inp => {
+    inp.onchange = (e) => {
+      const id = parseInt(e.target.dataset.id);
+      const val = parseInt(e.target.value);
+      if (state.tasks[id]) state.tasks[id].repeat_count = (!isNaN(val) && val > 0) ? val : null;
+      syncTasksDebounced();
+    };
+  });
+
+  document.querySelectorAll('.task-eps').forEach(inp => {
+    inp.onchange = (e) => {
+      const id = parseInt(e.target.dataset.id);
+      const val = parseInt(e.target.value);
+      if (state.tasks[id]) state.tasks[id].eps = (!isNaN(val) && val >= 0) ? val : null;
+      syncTasksDebounced();
+    };
+  });
+}
+
+function selectAndPreview(id) {
+  selectedTaskId = id;
+  document.querySelectorAll('#task-tbody tr').forEach(tr => {
+    tr.classList.toggle('selected', parseInt(tr.dataset.id) === id);
+  });
+
+  const task = state.tasks[id];
+  if (!task) return;
+
+  // Switch to preview tab
+  document.querySelector('.tab-btn[data-tab="tab-preview"]').click();
+  document.getElementById('preview-title').textContent =
+    `預覽系統 [${task.system_name}] — 檔案：${task.file_path}（前 100 行）`;
+  document.getElementById('preview-content').textContent = '讀取中...';
+
+  fetch(`/api/preview?file=${encodeURIComponent(task.file_path)}&lines=100`)
+    .then(r => r.json())
+    .then(res => {
+      if (res.success && res.lines) {
+        document.getElementById('preview-content').textContent = res.lines.join('\n');
+      } else {
+        document.getElementById('preview-content').textContent = '無法讀取內容: ' + (res.error || '');
+      }
+    });
+}
+
+function removeTask(id) {
+  if (state.is_running) {
+    showToast('請先停止發送任務後再移除項目！', 'error');
+    return;
+  }
+  state.tasks.splice(id, 1);
+  renderTaskTable(true);
+  syncTasksImmediately();
+}
+
+function renderLogs() {
+  const consoleEl = document.getElementById('console-logs');
+  const autoscroll = document.getElementById('chk-autoscroll').checked;
+  const newText = (state.logs || []).join('\n');
+  if (consoleEl.textContent !== newText) {
+    consoleEl.textContent = newText;
+    if (autoscroll) consoleEl.scrollTop = consoleEl.scrollHeight;
+  }
+}
+
+function renderReceiver() {
+  const r = state.receiver || {};
+  document.getElementById('recv-status-text').textContent = `狀態：${r.message || '未啟動'}`;
+  const btn = document.getElementById('btn-toggle-recv');
+  if (r.running) {
+    btn.textContent = '⏹ 停止本機接收器';
+    btn.className = 'btn btn-sm btn-danger';
+  } else {
+    btn.textContent = '📡 啟動本機 UDP 接收器';
+    btn.className = 'btn btn-sm btn-primary';
+  }
+
+  const el = document.getElementById('receiver-logs');
+  const pkts = (r.packets || []).map(p => `[#${p.id} | ${p.time} | 來自 ${p.src_ip}:${p.src_port}] ${p.payload}`).join('\n');
+  el.textContent = pkts || '(尚無接收封包)';
+}
+
+function collectTableTasks() {
+  document.querySelectorAll('#task-tbody tr').forEach(tr => {
+    const idx = parseInt(tr.dataset.id);
+    if (!state.tasks[idx]) return;
+    const chk = tr.querySelector('.task-check');
+    if (chk) state.tasks[idx].enabled = chk.checked;
+    const sys = tr.querySelector('.task-sysname');
+    if (sys) state.tasks[idx].system_name = sys.value.trim();
+    if (state.is_root) {
+      const src = tr.querySelector('.task-srcip');
+      if (src && !src.disabled) state.tasks[idx].source_ip = src.value.trim();
+    }
+    const port = tr.querySelector('.task-port');
+    if (port) {
+      const val = parseInt(port.value);
+      state.tasks[idx].target_port = (!isNaN(val) && val > 0) ? val : null;
+    }
+    const rep = tr.querySelector('.task-rep');
+    if (rep) {
+      const val = parseInt(rep.value);
+      state.tasks[idx].repeat_count = (!isNaN(val) && val > 0) ? val : null;
+    }
+    const eps = tr.querySelector('.task-eps');
+    if (eps) {
+      const val = parseInt(eps.value);
+      state.tasks[idx].eps = (!isNaN(val) && val >= 0) ? val : null;
+    }
+  });
+}
+
+// Event Bindings
+function bindEvents() {
+  // Global config inputs
+  ['target_ip', 'default_port', 'default_repeat_count', 'infinite_loop', 'loop_interval_sec', 'default_eps', 'send_mode', 'bind_interface', 'prepend_syslog_header', 'auto_cleanup_aliases']
+    .forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('change', () => {
+        collectAndSyncGlobal();
+        if ((id === 'target_ip' || id === 'bind_interface') && !state.is_root) {
+          renderTaskTable(false);
+        }
+      });
+    });
+
+  // Action buttons
+  document.getElementById('btn-start-all').onclick = async () => {
+    collectTableTasks();
+    const gConfig = collectGlobalConfig();
+    try {
+      const res = await fetch('/api/tasks/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          global_config: gConfig,
+          tasks: state.tasks
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, 'success');
+        fetchStatus(true);
+      } else {
+        alert('無法啟動發送: ' + data.error);
+      }
+    } catch (err) {
+      alert('請求失敗: ' + err);
+    }
+  };
+
+  document.getElementById('btn-pause-all').onclick = async () => {
+    const res = await fetch('/api/tasks/pause', { method: 'POST' });
+    const data = await res.json();
+    fetchStatus();
+  };
+
+  document.getElementById('btn-stop-all').onclick = async () => {
+    await fetch('/api/tasks/stop', { method: 'POST' });
+    fetchStatus();
+  };
+
+  // IP Alias buttons
+  document.getElementById('btn-mount-alias').onclick = async () => {
+    if (!state.is_root) {
+      alert('掛載網卡虛擬副 IP 需要 root / sudo 權限！\n請以 sudo ./run_sudo.sh 啟動程式。');
+      return;
+    }
+    const iface = document.getElementById('bind_interface').value;
+    const res = await fetch('/api/alias/mount', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ interface: iface })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message, 'success');
+      fetchStatus(true);
+    } else {
+      alert('掛載虛擬副 IP 失敗:\n' + data.error);
+    }
+  };
+
+  document.getElementById('btn-unmount-alias').onclick = async () => {
+    if (!state.is_root) {
+      alert('卸載網卡虛擬副 IP 需要 root / sudo 權限！\n請以 sudo ./run_sudo.sh 啟動程式。');
+      return;
+    }
+    const iface = document.getElementById('bind_interface').value;
+    const res = await fetch('/api/alias/unmount', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ interface: iface })
+    });
+    const data = await res.json();
+    showToast(data.message, data.count > 0 ? 'success' : 'info');
+    fetchStatus(true);
+  };
+
+  document.getElementById('btn-refresh-iface').onclick = () => {
+    fetchStatus(true);
+    showToast('網卡清單已更新', 'success');
+  };
+
+  // Batch assign sequential IP
+  document.getElementById('btn-batch-ip').onclick = async () => {
+    if (!state.is_root) {
+      alert('一般權限模式 (run.sh) 下固定由本機真實 IP 發送，無法指派模擬來源 IP。\n如需模擬多來源 IP 請以 sudo ./run_sudo.sh 啟動！');
+      return;
+    }
+    if (!state.tasks || state.tasks.length === 0) {
+      alert('清單中沒有任何任務！請先加入 Raw Log 檔案。');
+      return;
+    }
+
+    // Smart suggestion: use first task's source_ip if valid, or derive from interface
+    let defaultStart = '192.168.10.101';
+    if (state.tasks && state.tasks[0] && validateIpv4(state.tasks[0].source_ip)) {
+      defaultStart = state.tasks[0].source_ip;
+    } else {
+      const ifaceName = document.getElementById('bind_interface').value;
+      const iface = (state.interfaces || []).find(i => i.name === ifaceName);
+      if (iface && iface.ipv4_addresses && iface.ipv4_addresses.length > 0) {
+        const parts = iface.ipv4_addresses[0].split('.');
+        if (parts.length === 4 && parts[0] !== '127') {
+          defaultStart = `${parts[0]}.${parts[1]}.201.1`;
+        }
+      }
+    }
+
+    const startIp = prompt(`請輸入起始 IPv4 位址（將為全部 ${state.tasks.length} 個檔案依序遞增分配）：`, defaultStart);
+    if (!startIp || !startIp.trim()) return;
+
+    if (!validateIpv4(startIp.trim())) {
+      alert(`「${startIp}」不是合法的 IPv4 位址！格式應為 x.x.x.x (例如 192.168.10.101)`);
+      return;
+    }
+
+    const ips = generateSequentialIps(startIp.trim(), state.tasks.length);
+    state.tasks.forEach((t, i) => {
+      t.source_ip = ips[i];
+    });
+
+    renderTaskTable(true);
+    await syncTasksImmediately();
+    showToast(`已分配來源 IP: ${ips[0]} ~ ${ips[ips.length - 1]}`, 'success');
+  };
+
+  // Toggle all checkboxes
+  document.getElementById('btn-toggle-all').onclick = async () => {
+    const allChecked = state.tasks.every(t => t.enabled);
+    state.tasks.forEach(t => t.enabled = !allChecked);
+    renderTaskTable(true);
+    await syncTasksImmediately();
+  };
+
+  document.getElementById('th-check-all').onchange = async (e) => {
+    state.tasks.forEach(t => t.enabled = e.target.checked);
+    renderTaskTable(true);
+    await syncTasksImmediately();
+  };
+
+  document.getElementById('btn-remove-selected').onclick = async () => {
+    if (state.is_running) {
+      alert('請先停止正在發送的任務！');
+      return;
+    }
+    state.tasks = state.tasks.filter(t => !t.enabled);
+    renderTaskTable(true);
+    await syncTasksImmediately();
+    showToast('已移除選取任務', 'success');
+  };
+
+  // Scan sample_logs/
+  document.getElementById('btn-scan-sample').onclick = async () => {
+    try {
+      const res = await fetch('/api/fs/scan_folder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folder: 'sample_logs' })
+      });
+      const data = await res.json();
+      if (data.success && data.files) {
+        data.files.forEach(f => {
+          // If already in list, skip
+          if (state.tasks.some(t => t.file_path === f.file_path)) return;
+          const nextIp = getNextIp();
+          state.tasks.push({
+            enabled: true,
+            system_name: f.system_name,
+            file_path: f.file_path,
+            source_ip: nextIp,
+            target_port: null,
+            repeat_count: null,
+            eps: null,
+            total_lines: f.lines
+          });
+        });
+        renderTaskTable(true);
+        await syncTasksImmediately();
+        showToast(`已匯入 sample_logs 內的 Log 檔案`, 'success');
+      } else {
+        alert('掃描 sample_logs 失敗: ' + (data.error || ''));
+      }
+    } catch (err) {
+      alert('請求失敗: ' + err);
+    }
+  };
+
+  // File browser modal
+  document.getElementById('btn-browse-file').onclick = () => {
+    openFsModal('');
+  };
+
+  // Save & Load Profile
+  document.getElementById('btn-save-profile').onclick = async () => {
+    const name = prompt('請輸入儲存的設定檔名稱 (.json):', 'my_log_profile.json');
+    if (!name || !name.trim()) return;
+    await syncTasksImmediately();
+    const res = await fetch('/api/profile/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file_name: name.trim() })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message, 'success');
+    } else {
+      alert('儲存失敗: ' + data.error);
+    }
+  };
+
+  document.getElementById('btn-load-profile').onclick = async () => {
+    const name = prompt('請輸入欲載入的設定檔名稱 (.json):', 'default_profile.json');
+    if (!name || !name.trim()) return;
+    const res = await fetch('/api/profile/load', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file_name: name.trim() })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message, 'success');
+      fetchStatus(true);
+    } else {
+      alert('載入失敗: ' + data.error);
+    }
+  };
+
+  // Local Receiver controls
+  document.getElementById('btn-toggle-recv').onclick = async () => {
+    const port = parseInt(document.getElementById('recv-port').value) || 5514;
+    const res = await fetch('/api/receiver/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ port })
+    });
+    const data = await res.json();
+    fetchStatus();
+  };
+
+  document.getElementById('btn-apply-recv-target').onclick = () => {
+    const port = parseInt(document.getElementById('recv-port').value) || 5514;
+    document.getElementById('target_ip').value = '127.0.0.1';
+    document.getElementById('default_port').value = port;
+    collectAndSyncGlobal();
+    showToast(`已將目標設為 127.0.0.1:${port}`, 'success');
+  };
+
+  document.getElementById('btn-clear-recv').onclick = async () => {
+    await fetch('/api/receiver/clear', { method: 'POST' });
+    fetchStatus();
+  };
+
+  document.getElementById('btn-clear-log').onclick = async () => {
+    await fetch('/api/logs/clear', { method: 'POST' });
+    document.getElementById('console-logs').textContent = '';
+  };
+}
+
+function collectGlobalConfig() {
+  return {
+    target_ip: document.getElementById('target_ip').value.trim() || '127.0.0.1',
+    default_port: parseInt(document.getElementById('default_port').value) || 514,
+    default_repeat_count: parseInt(document.getElementById('default_repeat_count').value) || 1,
+    infinite_loop: document.getElementById('infinite_loop').checked,
+    loop_interval_sec: parseFloat(document.getElementById('loop_interval_sec').value) || 1.0,
+    default_eps: parseInt(document.getElementById('default_eps').value) || 100,
+    send_mode: document.getElementById('send_mode').value,
+    bind_interface: document.getElementById('bind_interface').value,
+    auto_cleanup_aliases: document.getElementById('auto_cleanup_aliases').checked,
+    prepend_syslog_header: document.getElementById('prepend_syslog_header').checked
+  };
+}
+
+let syncTimeout = null;
+function syncTasksDebounced() {
+  if (syncTimeout) clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(() => {
+    collectAndSyncGlobal();
+  }, 400);
+}
+
+async function syncTasksImmediately() {
+  if (syncTimeout) {
+    clearTimeout(syncTimeout);
+    syncTimeout = null;
+  }
+  return await collectAndSyncGlobal();
+}
+
+async function collectAndSyncGlobal() {
+  collectTableTasks();
+  const g = collectGlobalConfig();
+  state.global_config = g;
+  try {
+    await fetch('/api/tasks/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        global_config: g,
+        tasks: state.tasks
+      })
+    });
+  } catch (e) {
+    console.error('同步設定失敗:', e);
+  }
+}
+
+// File Browser Modal Logic
+let currentBrowseDir = '';
+async function openFsModal(dirPath) {
+  const modal = document.getElementById('fs-modal');
+  modal.classList.add('open');
+  loadDirectory(dirPath);
+}
+
+function closeFsModal() {
+  document.getElementById('fs-modal').classList.remove('open');
+}
+
+async function loadDirectory(dirPath) {
+  const listEl = document.getElementById('fs-list');
+  listEl.innerHTML = '<div style="padding: 12px; color: var(--text-muted);">載入中...</div>';
+  try {
+    const res = await fetch(`/api/fs/browse?dir=${encodeURIComponent(dirPath)}`);
+    const data = await res.json();
+    if (!data.success) {
+      listEl.innerHTML = `<div style="padding: 12px; color: var(--danger);">載入失敗: ${data.error}</div>`;
+      return;
+    }
+
+    currentBrowseDir = data.current_dir;
+    document.getElementById('fs-current-dir').value = data.current_dir;
+    document.getElementById('btn-fs-up').disabled = !data.parent_dir;
+    document.getElementById('btn-fs-up').onclick = () => loadDirectory(data.parent_dir);
+
+    listEl.innerHTML = '';
+
+    // Folders
+    data.subdirs.forEach(d => {
+      const item = document.createElement('div');
+      item.className = 'fs-list-item';
+      item.innerHTML = `<span>📁 <b>${escapeHtml(d.name)}</b></span><span style="color: var(--text-muted); font-size: 11px;">資料夾</span>`;
+      item.onclick = () => loadDirectory(d.path);
+      listEl.appendChild(item);
+    });
+
+    // Files
+    data.log_files.forEach(f => {
+      const item = document.createElement('div');
+      item.className = 'fs-list-item';
+      item.innerHTML = `<span>📄 ${escapeHtml(f.name)}</span><span style="color: #38bdf8; font-size: 11px;">${f.size}</span>`;
+      item.onclick = () => {
+        addFileToTasks(f.path, f.name);
+        closeFsModal();
+      };
+      listEl.appendChild(item);
+    });
+
+    if (data.subdirs.length === 0 && data.log_files.length === 0) {
+      listEl.innerHTML = '<div style="padding: 12px; color: var(--text-muted);">此資料夾內沒有檔案</div>';
+    }
+  } catch (err) {
+    listEl.innerHTML = `<div style="padding: 12px; color: var(--danger);">請求失敗: ${err}</div>`;
+  }
+}
+
+function addFileToTasks(filePath, fileName) {
+  if (state.tasks.some(t => t.file_path === filePath)) {
+    showToast('該檔案已在清單中！', 'error');
+    return;
+  }
+  const nextIp = getNextIp();
+  const stem = fileName.replace(/\.[^/.]+$/, '');
+  state.tasks.push({
+    enabled: true,
+    system_name: stem,
+    file_path: filePath,
+    source_ip: nextIp,
+    target_port: null,
+    repeat_count: null,
+    eps: null,
+    total_lines: 0
+  });
+  renderTaskTable(true);
+  syncTasksImmediately();
+  showToast(`已加入: ${fileName}`, 'success');
+}
+
+// Helper Utilities
+function validateIpv4(ip) {
+  if (!ip) return false;
+  const parts = ip.split('.');
+  if (parts.length !== 4) return false;
+  return parts.every(p => {
+    const n = Number(p);
+    return !isNaN(n) && n >= 0 && n <= 255 && String(n) === p;
+  });
+}
+
+function getNextIp() {
+  const existing = state.tasks.map(t => t.source_ip).filter(validateIpv4);
+  if (existing.length === 0) return '192.168.10.101';
+  try {
+    const seq = generateSequentialIps(existing[existing.length - 1], 2);
+    return seq[1];
+  } catch (e) {
+    return '192.168.10.101';
+  }
+}
+
+function generateSequentialIps(startIp, count) {
+  const parts = startIp.split('.').map(Number);
+  let num = (parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3];
+  const res = [];
+  for (let i = 0; i < count; i++) {
+    const octet4 = num & 255;
+    if (octet4 === 0) num++;
+    else if (octet4 === 255) num += 2;
+
+    const b0 = (num >>> 24) & 255;
+    const b1 = (num >>> 16) & 255;
+    const b2 = (num >>> 8) & 255;
+    const b3 = num & 255;
+    res.push(`${b0}.${b1}.${b2}.${b3}`);
+    num++;
+  }
+  return res;
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+</script>
+</body>
+</html>
